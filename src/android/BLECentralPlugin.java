@@ -128,6 +128,7 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
             Activity activity = cordova.getActivity();
             BluetoothManager bluetoothManager = (BluetoothManager) activity.getSystemService(Context.BLUETOOTH_SERVICE);
             bluetoothAdapter = bluetoothManager.getAdapter();
+            BluetoothLeScannerCompat scanner = BluetoothLeScannerCompat.getScanner();
         }
 
         boolean validAction = true;
@@ -147,7 +148,7 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
 
         } else if (action.equals(STOP_SCAN)) {
 
-            bluetoothAdapter.stopLeScan(this);
+            scanner.stopScan(leScanCallback);
             callbackContext.success();
 
         } else if (action.equals(LIST)) {
@@ -443,8 +444,6 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
     }
 
     private void findLowEnergyDevices(CallbackContext callbackContext, UUID[] serviceUUIDs, int scanSeconds) {
-        LOG.d("cdv-ble", "Begin invocation of findLowEnergyDevices()");
-
         if(!PermissionHelper.hasPermission(this, ACCESS_COARSE_LOCATION)) {
             // save info so we can call this method again after permissions are granted
             permissionCallback = callbackContext;
@@ -471,13 +470,6 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
 
         BluetoothLeScannerCompat scanner = BluetoothLeScannerCompat.getScanner();
 
-        scanner.stopScan(leScanCallback);
-        try {
-            Thread.sleep(1000);
-        } catch (Exception e) {
-            // throw a fit
-        }
-
         scanner.startScan(leScanCallback);
 
         /*
@@ -502,8 +494,6 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
         PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
         result.setKeepCallback(true);
         callbackContext.sendPluginResult(result);
-
-        LOG.d("cdv-ble", "Finish invocation of findLowEnergyDevices()");
     }
 
     private void listKnownDevices(CallbackContext callbackContext) {
