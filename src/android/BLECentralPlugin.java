@@ -16,16 +16,25 @@ package com.megster.cordova.ble.central;
 
 import android.Manifest;
 import android.app.Activity;
+import android.annotation.TargetApi;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothManager;
+import android.bluetooth.le.BluetoothLeScanner;
+//import android.bluetooth.le.ScanCallback;
+//import android.bluetooth.le.ScanResult;
+import no.nordicsemi.android.support.v18.scanner.BluetoothLeScannerCompat;
+import no.nordicsemi.android.support.v18.scanner.ScanCallback;
+import no.nordicsemi.android.support.v18.scanner.ScanResult;
+import no.nordicsemi.android.support.v18.scanner.ScanRecord;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.IntentFilter;
 import android.os.Handler;
+import android.os.Build.*;
 
 import android.provider.Settings;
 import org.apache.cordova.CallbackContext;
@@ -436,6 +445,7 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
     }
 
     private void findLowEnergyDevices(CallbackContext callbackContext, UUID[] serviceUUIDs, int scanSeconds) {
+        LOG.d("cdv-ble", "Begin invocation of findLowEnergyDevices()");
 
         if(!PermissionHelper.hasPermission(this, ACCESS_COARSE_LOCATION)) {
             // save info so we can call this method again after permissions are granted
@@ -461,11 +471,24 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
 
         discoverCallback = callbackContext;
 
+        BluetoothLeScannerCompat scanner = BluetoothLeScannerCompat.getScanner();
+
+        scanner.stopScan(leScanCallback);
+        try {
+            Thread.sleep(1000);
+        } catch (Exception e) {
+            // throw a fit
+        }
+
+        scanner.startScan(leScanCallback);
+
+        /*
         if (serviceUUIDs.length > 0) {
             bluetoothAdapter.startLeScan(serviceUUIDs, this);
         } else {
             bluetoothAdapter.startLeScan(this);
         }
+        */
 
         if (scanSeconds > 0) {
             Handler handler = new Handler();
@@ -481,6 +504,8 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
         PluginResult result = new PluginResult(PluginResult.Status.NO_RESULT);
         result.setKeepCallback(true);
         callbackContext.sendPluginResult(result);
+
+        LOG.d("cdv-ble", "Finish invocation of findLowEnergyDevices()");
     }
 
     private void listKnownDevices(CallbackContext callbackContext) {
@@ -496,6 +521,48 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
         PluginResult result = new PluginResult(PluginResult.Status.OK, json);
         callbackContext.sendPluginResult(result);
     }
+
+    private ScanCallback leScanCallback = new ScanCallback() {
+        @TargetApi(21)
+        @Override
+        public void onScanResult(int callbackType, ScanResult result) {
+            super.onScanResult(callbackType, result);
+
+            BluetoothDevice device = result.getDevice();
+            int rssi = result.getRssi();
+            ScanRecord scanRecord = result.getScanRecord();
+            String address = device.getAddress();
+            boolean alreadyReported = peripherals.containsKey(address);
+
+            if (!alreadyReported) {
+                Peripheral peripheral = new Peripheral(device, rssi, scanRecord.getBytes());
+                peripherals.put(device.getAddress(), peripheral);
+
+                if (discoverCallback != null) {
+                    PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, peripheral.asJSONObject());
+                    pluginResult.setKeepCallback(true);
+                    discoverCallback.sendPluginResult(pluginResult);
+                }
+            } else {
+                Peripheral peripheral = peripherals.get(address);
+                peripheral.update(rssi, scanRecord.getBytes());
+
+                if (reportDuplicates && discoverCallback != null) {
+                    PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, peripheral.asJSONObject());
+                    pluginResult.setKeepCallback(true);
+                    discoverCallback.sendPluginResult(pluginResult);
+                }
+            }
+        }
+
+        @TargetApi(21)
+        @Override
+        public void onScanFailed(int errorCode) {
+            super.onScanFailed(errorCode);
+
+            LOG.e(TAG, "Scan failure: " + errorCode);
+        }
+    };
 
     @Override
     public void onLeScan(BluetoothDevice device, int rssi, byte[] scanRecord) {
