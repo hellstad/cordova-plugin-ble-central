@@ -86,6 +86,7 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
     private static final int REQUEST_ENABLE_BLUETOOTH = 1;
 
     BluetoothAdapter bluetoothAdapter;
+    BluetoothLeScannerCompat scanner;
 
     // key is the MAC Address
     Map<String, Peripheral> peripherals = new LinkedHashMap<String, Peripheral>();
@@ -128,7 +129,7 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
             Activity activity = cordova.getActivity();
             BluetoothManager bluetoothManager = (BluetoothManager) activity.getSystemService(Context.BLUETOOTH_SERVICE);
             bluetoothAdapter = bluetoothManager.getAdapter();
-            BluetoothLeScannerCompat scanner = BluetoothLeScannerCompat.getScanner();
+            scanner = BluetoothLeScannerCompat.getScanner();
         }
 
         boolean validAction = true;
@@ -467,8 +468,6 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
         }
 
         discoverCallback = callbackContext;
-
-        BluetoothLeScannerCompat scanner = BluetoothLeScannerCompat.getScanner();
 
         scanner.startScan(leScanCallback);
 
