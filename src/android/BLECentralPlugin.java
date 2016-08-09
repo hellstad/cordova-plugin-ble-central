@@ -26,6 +26,8 @@ import no.nordicsemi.android.support.v18.scanner.BluetoothLeScannerCompat;
 import no.nordicsemi.android.support.v18.scanner.ScanCallback;
 import no.nordicsemi.android.support.v18.scanner.ScanResult;
 import no.nordicsemi.android.support.v18.scanner.ScanRecord;
+import no.nordicsemi.android.support.v18.scanner.ScanFilter;
+import no.nordicsemi.android.support.v18.scanner.ScanSettings;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -33,6 +35,7 @@ import android.content.pm.PackageManager;
 import android.content.IntentFilter;
 import android.os.Handler;
 import android.os.Build.*;
+import android.os.ParcelUuid;
 
 import android.provider.Settings;
 import org.apache.cordova.CallbackContext;
@@ -469,15 +472,21 @@ public class BLECentralPlugin extends CordovaPlugin implements BluetoothAdapter.
 
         discoverCallback = callbackContext;
 
-        scanner.startScan(leScanCallback);
-
-        /*
         if (serviceUUIDs.length > 0) {
-            bluetoothAdapter.startLeScan(serviceUUIDs, this);
+            ScanSettings settings = new ScanSettings.Builder()
+                                        .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).setReportDelay(1000)
+                                        .setUseHardwareBatchingIfSupported(false).build();
+            List<ScanFilter> filters = new ArrayList<>();
+
+            for (UUID iUuid: serviceUUIDs) {
+                ParcelUuid mUuid = new ParcelUuid(iUuid);
+                filters.add(new ScanFilter.Builder().setServiceUuid(mUuid).build());
+            }
+
+            scanner.startScan(filters, settings, leScanCallback);
         } else {
-            bluetoothAdapter.startLeScan(this);
+            scanner.startScan(leScanCallback);
         }
-        */
 
         if (scanSeconds > 0) {
             Handler handler = new Handler();
